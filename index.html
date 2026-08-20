@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expense Dashboard</title>
+<style>
+  :root{
+    --bg:#FAFAF7; --card:#FFFFFF; --ink:#1C2530; --ink-soft:#5D6873;
+    --line:#E7E7DF; --grid:#EFEFE8; --bar:#B7BEBE; --bar-soft:#DDE1E0;
+    --accent:#B4553A;              /* wrong-direction signal only */
+    --accent-soft:#F3E4DE;
+    --down:#2E7D57;                /* good direction: spend fell */
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+  .wrap{max-width:880px;margin:0 auto;padding:34px 24px 72px;}
+
+  header.top{margin-bottom:30px;}
+  header.top h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em;}
+  header.top p{margin:4px 0 0;color:var(--ink-soft);font-size:14.5px;}
+  header.top .freshness{margin:11px 0 0;display:inline-block;font-size:12px;color:var(--ink-soft);
+    background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 11px;letter-spacing:.02em;}
+  .toolbar{display:flex;gap:10px;justify-content:flex-end;margin:-38px 0 26px;flex-wrap:wrap;}
+  .btn{background:transparent;color:var(--ink);border:1.5px solid var(--line);
+    padding:8px 14px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn:hover{border-color:var(--ink);background:#fff;}
+
+  /* Verdict strip */
+  .verdict{display:grid;grid-template-columns:1.2fr 1fr 1.2fr;gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:34px;}
+  .vcell{background:var(--card);padding:20px 22px;}
+  .vlabel{font-size:11px;text-transform:uppercase;letter-spacing:.11em;color:var(--ink-soft);margin-bottom:8px;}
+  .vbig{font-size:33px;font-weight:700;letter-spacing:-.02em;line-height:1;}
+  .vsub{font-size:13px;color:var(--ink-soft);margin-top:7px;}
+  .vchange{font-size:26px;font-weight:700;line-height:1;display:flex;align-items:baseline;gap:7px;}
+  .vchange .arw{font-size:19px;}
+  .up{color:var(--accent);} .down{color:var(--down);}
+  .vfast{font-size:22px;font-weight:700;line-height:1.15;}
+  .vfast .pct{color:var(--accent);}
+
+  section{margin-bottom:38px;}
+  .sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;}
+  .sec-h h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;margin:0;color:var(--ink);}
+  .sec-h .hint{font-size:12px;color:var(--ink-soft);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 20px 16px;}
+  svg{display:block;width:100%;height:auto;}
+
+  /* Bars */
+  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .toggle button{background:#fff;border:none;padding:5px 12px;font-size:12px;font-weight:600;
+    color:var(--ink-soft);cursor:pointer;}
+  .toggle button.on{background:var(--ink);color:#fff;}
+  .bars{display:flex;flex-direction:column;gap:13px;}
+  .bar-row{display:grid;grid-template-columns:130px 1fr auto;align-items:center;gap:14px;}
+  .bar-label{font-size:13.5px;font-weight:600;}
+  .bar-track{background:var(--bar-soft);border-radius:6px;height:20px;position:relative;overflow:hidden;}
+  .bar-fill{background:var(--bar);height:100%;border-radius:6px;}
+  .bar-val{font-size:13.5px;color:var(--ink);text-align:right;white-space:nowrap;min-width:78px;}
+  .flag{color:var(--accent);font-weight:700;font-size:12px;margin-left:8px;white-space:nowrap;}
+  .newtag{color:var(--ink-soft);font-weight:600;font-size:11px;margin-left:8px;
+    background:#EEF0EC;border-radius:5px;padding:1px 6px;}
+
+  /* Table */
+  .controls{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .controls label{font-size:12px;color:var(--ink-soft);margin-right:6px;}
+  select{font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);}
+  .tsummary{font-size:12.5px;color:var(--ink-soft);margin-left:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);
+    font-weight:600;padding:0 0 9px;border-bottom:1px solid var(--line);}
+  th.r,td.r{text-align:right;}
+  th.sortable{cursor:pointer;user-select:none;}
+  th.sortable:hover{color:var(--ink);}
+  th .caret{font-size:9px;margin-left:4px;color:var(--accent);}
+  td{padding:9px 0;border-bottom:1px solid var(--grid);}
+  tr:last-child td{border-bottom:none;}
+  td.v{font-weight:600;}
+  .muted{color:var(--ink-soft);}
+
+  .foot{margin-top:12px;font-size:12px;color:var(--ink-soft);line-height:1.7;}
+  .foot .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;background:var(--accent);
+    vertical-align:middle;margin:0 3px 2px;}
+  input[type=file]{display:none;}
+
+  @media (max-width:640px){
+    .verdict{grid-template-columns:1fr;} .vbig{font-size:29px;}
+    .bar-row{grid-template-columns:104px 1fr;} .bar-val{grid-column:2;text-align:left;min-width:0;margin-top:-6px;}
+    .toolbar{margin-top:0;}
+  }
+  @media print{
+    body{background:#fff;} .toolbar{display:none;}
+    .card,.verdict,.vcell{border-color:#ccc;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Expense Dashboard</h1>
+    <p id="subtitle">Where is the money going &mdash; and is anything moving the wrong way?</p>
+    <p class="freshness" id="freshness"></p>
+  </header>
+
+  <div class="toolbar">
+    <button class="btn" id="reload" type="button">Load new month&rsquo;s file</button>
+    <button class="btn" id="print" type="button">Print / Save as PDF</button>
+  </div>
+
+  <div id="app"></div>
+  <input type="file" id="file" accept=".csv,text/csv">
+</div>
+
+<!-- Sample data (illustrative) -->
+<script type="text/csv" id="seed">Date,Vendor,Category,Amount,Notes
+2026-01-03,Zoom,Software,149.90,renewal
+2026-01-09,WeWork,Office Rent,2400.00,
+2026-01-13,The Corner Bistro,Meals & Entertainment,102.56,check w/ finance
+2026-01-15,Uber,Travel,59.13,offsite planning
+2026-01-21,LinkedIn,Software,60.00,monthly sub
+2026-01-21,Uber,Travel,62.86,
+2026-01-23,Marriott,Travel,378.95,monthly sub
+2026-01-24,Zoom,Software,150.00,
+2026-01-24,Zoom,Software,149.90,reimbursed?
+2026-01-25,Marriott,Travel,528.49,
+2026-02-01,Marriott,Travel,379.76,conf travel
+2026-02-03,Uber,Travel,,receipt missing; NEEDS RECEIPT
+2026-02-14,Uber,Travel,25.23,Q2 campaign
+2026-02-14,WeWork,Office Rent,2400.00,
+2026-02-14,WeWork,Office Rent,2400.00,renewal
+2026-02-15,Staples,Office Supplies,43.76,reimbursed?
+2026-02-16,Canva,Software,54.99,Q2 campaign
+2026-02-16,The Corner Bistro,Meals & Entertainment,49.19,
+2026-02-17,Mailchimp,Software,60.00,
+2026-02-17,Notion,Software,96.00,
+2026-02-21,Google Ads,Marketing,904.74,offsite planning
+2026-02-26,Mailchimp,Software,60.00,monthly sub
+2026-02-28,Notion,Software,96.00,reimbursed?
+2026-02-28,Zoom,Software,150.00,reimbursed?
+2026-03-02,Canva,Software,54.99,
+2026-03-05,Google Ads,Marketing,1138.86,renewal
+2026-03-06,Marriott,Travel,567.59,monthly sub
+2026-03-06,Staples,Office Supplies,33.82,check w/ finance
+2026-03-07,Marriott,Travel,640.32,
+2026-03-07,Uber,Travel,83.00,Q2 campaign
+2026-03-08,Notion,Software,96.00,check w/ finance
+2026-03-10,Staples,Office Supplies,169.42,team dinner w/ client
+2026-03-13,Marriott,Travel,407.14,monthly sub
+2026-03-13,Zoom,Software,149.90,
+2026-03-19,LinkedIn,Software,59.99,team dinner w/ client
+2026-03-19,WeWork,Office Rent,2400.00,conf travel
+2026-03-26,Mailchimp,Software,60.00,
+2026-04-02,Uber,Travel,22.00,reimbursed?
+2026-04-03,Zoom,Software,149.90,check w/ finance
+2026-04-04,Canva,Software,54.99,team dinner w/ client
+2026-04-04,Staples,Office Supplies,85.00,
+2026-04-06,Uber,Travel,66.63,offsite planning
+2026-04-07,WeWork,Office Rent,2400.00,team dinner w/ client
+2026-04-08,Marriott,Travel,353.25,conf travel
+2026-04-12,Uber,Travel,77.83,conf travel
+2026-04-17,LinkedIn,Software,59.99,reimbursed?
+2026-04-18,Delta Airlines,Travel,295.85,
+2026-04-24,Delta Airlines,Travel,686.77,
+2026-04-28,Staples,Office Supplies,88.00,
+2026-05-07,Uber,Travel,44.52,Q2 campaign
+2026-05-08,Google Ads,Marketing,593.00,
+2026-05-13,Canva,Software,54.99,
+2026-05-13,LinkedIn,Software,59.99,team dinner w/ client
+2026-05-14,The Corner Bistro,Meals & Entertainment,60.04,Q2 campaign
+2026-05-22,Mailchimp,Software,60.00,
+2026-05-22,Marriott,Travel,513.83,renewal
+2026-05-22,Uber,Travel,43.00,monthly sub
+2026-05-26,Mailchimp,Software,60.00,
+2026-05-28,Canva,Software,55.00,check w/ finance
+2026-05-28,WeWork,Office Rent,2400.00,offsite planning
+2026-06-01,Mailchimp,Software,60.00,
+2026-06-08,Delta Airlines,Travel,449.00,conf travel
+2026-06-08,Zoom,Software,149.90,reimbursed?
+2026-06-09,Marriott,Travel,584.00,offsite planning
+2026-06-13,WeWork,Office Rent,2400.00,renewal
+2026-06-14,LinkedIn,Software,60.00,conf travel
+2026-06-15,Marriott,Travel,523.03,
+2026-06-15,Marriott,Travel,731.70,
+2026-06-15,Staples,Office Supplies,89.45,
+2026-06-15,Uber,Travel,19.50,
+2026-06-27,Delta Airlines,Travel,485.65,</script>
+
+<script>
+/* ---------- hardened parsing (shared with the reporter) ---------- */
+const KNOWN=["Software","Office Rent","Meals & Entertainment","Travel","Office Supplies","Marketing"];
+const MONTHS3={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function parseCSV(text){
+  const clean=text.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  const lines=clean.split("\n").filter(l=>l.trim()!=="");
+  const pl=l=>{const o=[];let c="",q=false;for(let i=0;i<l.length;i++){const ch=l[i];
+    if(q){if(ch==='"'){if(l[i+1]==='"'){c+='"';i++;}else q=false;}else c+=ch;}
+    else{if(ch==='"')q=true;else if(ch===','){o.push(c);c="";}else c+=ch;}}o.push(c);return o;};
+  if(!lines.length)return{headers:[],rows:[]};
+  const headers=pl(lines[0]).map(h=>h.trim());const rows=[];
+  for(let i=1;i<lines.length;i++){const v=pl(lines[i]);const ob={__line:i+1};
+    headers.forEach((h,idx)=>ob[h]=(v[idx]!==undefined?v[idx]:"").trim());rows.push(ob);}
+  return{headers,rows};
+}
+function findCol(h,n){for(const x of n){const hit=h.find(k=>k.toLowerCase()===x);if(hit)return hit;}return null;}
+function parseDate(d){d=(d||"").trim();if(d==="")return null;let m;
+  m=d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return valid(+m[1],+m[2],+m[3]);
+  m=d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return valid(+m[3],+m[1],+m[2]);
+  m=d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);if(m)return valid(2000+ +m[3],+m[1],+m[2]);
+  m=d.match(/^([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})$/);if(m){const mo=MONTHS3[m[1].slice(0,3).toLowerCase()];return mo?valid(+m[3],mo,+m[2]):null;}
+  m=d.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})$/);if(m){const mo=MONTHS3[m[2].slice(0,3).toLowerCase()];return mo?valid(+m[3],mo,+m[1]):null;}
+  return null;}
+function valid(y,mo,da){if(mo<1||mo>12||da<1||da>31||y<1900||y>2100)return null;return{key:y+"-"+String(mo).padStart(2,"0")};}
+function monthName(k){const[y,mo]=k.split("-");const n=["January","February","March","April","May","June","July","August","September","October","November","December"];return n[+mo-1]+" "+y;}
+function monthShort(k){const[,mo]=k.split("-");return["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+mo-1];}
+function parseAmount(raw){let s=(raw||"").trim();if(s==="")return{status:"blank"};let neg=false;
+  s=s.replace(/\$/g,"").replace(/\s/g,"");if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1);}
+  s=s.replace(/,/g,"");if(s.startsWith("-")){neg=true;s=s.slice(1);}if(s.startsWith("+"))s=s.slice(1);
+  if(!/^\d+(\.\d+)?$/.test(s))return{status:"unreadable"};const v=parseFloat(s);
+  return isNaN(v)?{status:"unreadable"}:{status:"ok",value:neg?-v:v};}
+function canonCat(c){const t=(c||"").trim();return KNOWN.find(k=>k.toLowerCase()===t.toLowerCase())||t;}
+
+/* ---------- dashboard aggregation (DOM-free) ---------- */
+function analyzeDash(text){
+  const {headers,rows}=parseCSV(text);
+  const cD=findCol(headers,["date"]),cV=findCol(headers,["vendor","payee","merchant"]),
+        cC=findCol(headers,["category"]),cA=findCol(headers,["amount","amt","total","cost"]);
+  if(!cD||!cV||!cC||!cA) return {error:"The file needs Date, Vendor, Category and Amount columns. Found: "+headers.join(", ")};
+  let setAside=0; const recs=[];
+  rows.forEach(r=>{
+    const dt=parseDate(r[cD]); if(!dt){setAside++;return;}
+    const amt=parseAmount(r[cA]);
+    recs.push({date:r[cD],month:dt.key,vendor:r[cV],category:canonCat(r[cC]),
+      amount:amt.status==="ok"?amt.value:null});
+  });
+  const months=[...new Set(recs.map(r=>r.month))].sort();
+  if(!months.length) return {error:"No rows had a readable date, so there's nothing to chart."};
+  const monthlyTotals=months.map(k=>({key:k,total:recs.filter(r=>r.month===k).reduce((a,r)=>a+(r.amount||0),0)}));
+  const curKey=months[months.length-1], prevKey=months.length>1?months[months.length-2]:null;
+  const catBy=k=>{const m={};recs.filter(r=>r.month===k).forEach(r=>{if(r.amount!==null)m[r.category]=(m[r.category]||0)+r.amount;});return m;};
+  const curCats=catBy(curKey), prevCats=prevKey?catBy(prevKey):{};
+  const totalThis=monthlyTotals[monthlyTotals.length-1].total;
+  const totalPrev=prevKey?monthlyTotals[monthlyTotals.length-2].total:0;
+  const pct=prevKey&&totalPrev?((totalThis-totalPrev)/totalPrev*100):null;
+
+  // fastest-growing among categories with prior>0
+  let fastest=null;
+  Object.keys(curCats).forEach(c=>{const p=prevCats[c]||0;if(p>0){const g=(curCats[c]-p)/p*100;if(fastest===null||g>fastest.pct)fastest={cat:c,pct:g};}});
+  const fastestSeries = fastest? months.map(k=>({key:k,total:(catBy(k)[fastest.cat]||0)})) : [];
+
+  const catThis=Object.keys(curCats).map(c=>{
+    const p=prevCats[c]||0, now=curCats[c];
+    const isNew=(p===0), pc=p>0?((now-p)/p*100):null;
+    return {cat:c,total:now,pct:pc,isNew,flag:(pc!==null&&pc>50)};
+  }).sort((a,b)=>b.total-a.total);
+
+  const allTot={}; recs.forEach(r=>{if(r.amount!==null)allTot[r.category]=(allTot[r.category]||0)+r.amount;});
+  const catAll=Object.keys(allTot).map(c=>({cat:c,total:allTot[c]})).sort((a,b)=>b.total-a.total);
+
+  const expenses=recs.map(r=>({date:r.date,month:r.month,vendor:r.vendor,category:r.category,amount:r.amount}));
+  return {months,monthlyTotals,curKey,prevKey,totalThis,totalPrev,pct,fastest,fastestSeries,
+    catThis,catAll,expenses,meta:{rows:rows.length,counted:recs.filter(r=>r.amount!==null).length,setAside}};
+}
+
+/* ---------- formatting ---------- */
+const money=n=>"$"+Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0=n=>"$"+Math.round(Number(n)).toLocaleString("en-US");
+const kfmt=n=> n>=1000 ? "$"+(n/1000).toFixed(n%1000===0?0:1)+"k" : "$"+Math.round(n);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- charts ---------- */
+function lineChart(d){
+  const W=720,H=250,P={l:30,r:78,t:22,b:30};
+  const pw=W-P.l-P.r, ph=H-P.t-P.b, n=d.monthlyTotals.length;
+  const maxV=Math.max(1,...d.monthlyTotals.map(m=>m.total));
+  const max=Math.ceil(maxV/1000)*1000;
+  const X=i=> n===1?P.l+pw/2 : P.l+i*(pw/(n-1));
+  const Y=v=> P.t+ph-(v/max)*ph;
+  let g="";
+  [0,max/2,max].forEach(v=>{
+    g+='<line x1="'+P.l+'" y1="'+Y(v)+'" x2="'+(P.l+pw)+'" y2="'+Y(v)+'" stroke="var(--grid)" stroke-width="1"/>';
+    g+='<text x="'+(P.l-6)+'" y="'+(Y(v)+3)+'" text-anchor="end" font-size="10" fill="var(--ink-soft)">'+kfmt(v)+'</text>';
+  });
+  let xl="";
+  d.monthlyTotals.forEach((m,i)=>{ xl+='<text x="'+X(i)+'" y="'+(H-10)+'" text-anchor="middle" font-size="10.5" fill="var(--ink-soft)">'+monthShort(m.key)+'</text>'; });
+  // soft fill under the total line = "the whole"
+  const baseY=Y(0);
+  let area='<path d="M '+X(0)+' '+baseY+' ';
+  d.monthlyTotals.forEach((m,i)=>{ area+='L '+X(i)+' '+Y(m.total)+' '; });
+  area+='L '+X(n-1)+' '+baseY+' Z" fill="rgba(28,37,48,0.05)" stroke="none"/>';
+  // overlay (fastest) = dashed accent line, hollow dots, drawn under the total
+  let ov="";
+  if(d.fastest && d.fastestSeries.length){
+    const pts=d.fastestSeries.map((m,i)=>X(i)+","+Y(m.total)).join(" ");
+    ov+='<polyline points="'+pts+'" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-dasharray="6 4" stroke-linejoin="round" stroke-linecap="round"/>';
+    d.fastestSeries.forEach((m,i)=>{ ov+='<circle cx="'+X(i)+'" cy="'+Y(m.total)+'" r="3" fill="var(--card)" stroke="var(--accent)" stroke-width="1.8"/>'; });
+    const last=d.fastestSeries[n-1];
+    ov+='<text x="'+(X(n-1)+8)+'" y="'+(Y(last.total)+3)+'" font-size="10.5" fill="var(--accent)" font-weight="600">'+esc(d.fastest.cat)+'</text>';
+  }
+  // total line
+  const tpts=d.monthlyTotals.map((m,i)=>X(i)+","+Y(m.total)).join(" ");
+  let tl='<polyline points="'+tpts+'" fill="none" stroke="var(--ink)" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>';
+  d.monthlyTotals.forEach((m,i)=>{
+    tl+='<circle cx="'+X(i)+'" cy="'+Y(m.total)+'" r="3" fill="var(--ink)"/>';
+    tl+='<text x="'+X(i)+'" y="'+(Y(m.total)-9)+'" text-anchor="middle" font-size="10" fill="var(--ink-soft)">'+kfmt(m.total)+'</text>';
+  });
+  const lastT=d.monthlyTotals[n-1];
+  tl+='<text x="'+(X(n-1)+8)+'" y="'+(Y(lastT.total)+3)+'" font-size="10.5" fill="var(--ink)" font-weight="700">Total</text>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Monthly spend trend">'+g+area+ov+tl+xl+'</svg>';
+}
+
+function barChart(list, mode){
+  const max=Math.max(1,...list.map(x=>x.total));
+  return '<div class="bars">'+list.map(x=>{
+    const w=Math.max(1,(x.total/max)*100);
+    let mark="";
+    if(mode==="this"){
+      if(x.flag) mark='<span class="flag">&#9650; +'+x.pct.toFixed(0)+'%</span>';
+      else if(x.isNew) mark='<span class="newtag">new</span>';
+    }
+    return '<div class="bar-row"><div class="bar-label">'+esc(x.cat)+'</div>'
+      +'<div class="bar-track"><div class="bar-fill" style="width:'+w+'%"></div></div>'
+      +'<div class="bar-val"><span class="num">'+money0(x.total)+'</span>'+mark+'</div></div>';
+  }).join("")+'</div>';
+}
+
+/* ---------- state + render ---------- */
+let DATA=null, barMode="this", sortDir="desc", fCat="all", fMonth="all";
+
+function renderVerdict(d){
+  let change='<div class="vbig">&mdash;</div>';
+  if(d.pct!==null){
+    const up=d.pct>=0, cls=up?"up":"down", arw=up?"&#9650;":"&#9660;", word=up?"Up":"Down", rel=up?"Higher":"Lower";
+    change='<div class="vchange '+cls+'"><span class="arw">'+arw+'</span> '+word+' <span class="num">'+Math.abs(d.pct).toFixed(0)+'%</span></div>'
+      +'<div class="vsub '+cls+'">'+rel+' than '+monthName(d.prevKey).split(" ")[0]+'</div>';
+  }
+  let fast='<div class="vfast">&mdash;</div><div class="vsub">no category rising sharply</div>';
+  if(d.fastest){
+    fast='<div class="vfast">'+esc(d.fastest.cat)+' <span class="pct">+'+d.fastest.pct.toFixed(0)+'%</span></div>'
+      +'<div class="vsub">vs '+monthName(d.prevKey)+'</div>';
+  }
+  return '<div class="verdict">'
+    +'<div class="vcell"><div class="vlabel">'+monthName(d.curKey)+' &mdash; total spend</div>'
+      +'<div class="vbig num">'+money(d.totalThis)+'</div><div class="vsub">this period</div></div>'
+    +'<div class="vcell"><div class="vlabel">Change</div>'+change+'</div>'
+    +'<div class="vcell"><div class="vlabel">Fastest-growing</div>'+fast+'</div></div>';
+}
+
+function renderTable(d){
+  const cats=["all",...[...new Set(d.expenses.map(e=>e.category))].sort()];
+  const mons=["all",...d.months];
+  const catOpts=cats.map(c=>'<option value="'+esc(c)+'"'+(c===fCat?' selected':'')+'>'+(c==="all"?"All categories":esc(c))+'</option>').join("");
+  const monOpts=mons.map(m=>'<option value="'+esc(m)+'"'+(m===fMonth?' selected':'')+'>'+(m==="all"?"All months":monthName(m))+'</option>').join("");
+  let rows=d.expenses.filter(e=>(fCat==="all"||e.category===fCat)&&(fMonth==="all"||e.month===fMonth));
+  rows=rows.slice().sort((a,b)=>{
+    const av=a.amount===null?-Infinity:a.amount, bv=b.amount===null?-Infinity:b.amount;
+    return sortDir==="desc"? bv-av : av-bv;
+  });
+  const shownSum=rows.reduce((s,e)=>s+(e.amount||0),0);
+  const caret = sortDir==="desc"?"&#9660;":"&#9650;";
+  const body=rows.map(e=>'<tr><td class="num muted">'+esc(e.date)+'</td><td>'+esc(e.vendor)+'</td>'
+    +'<td>'+esc(e.category)+'</td><td class="r v num">'+(e.amount===null?'<span class="muted">&mdash;</span>':money(e.amount))+'</td></tr>').join("")
+    || '<tr><td colspan="4" class="muted" style="padding:16px 0;">No expenses match these filters.</td></tr>';
+  return '<div class="controls">'
+    +'<span><label>Category</label><select id="fCat">'+catOpts+'</select></span>'
+    +'<span><label>Month</label><select id="fMonth">'+monOpts+'</select></span>'
+    +'<span class="tsummary">Showing '+rows.length+' expenses &middot; <b class="num">'+money(shownSum)+'</b></span></div>'
+    +'<table><thead><tr><th>Date</th><th>Vendor</th><th>Category</th>'
+    +'<th class="r sortable" id="sortAmt">Amount<span class="caret">'+caret+'</span></th></tr></thead>'
+    +'<tbody>'+body+'</tbody></table>';
+}
+
+function render(){
+  const d=DATA;
+  document.getElementById("freshness").textContent="Data through "+monthName(d.curKey);
+  const barList = barMode==="this"? d.catThis : d.catAll;
+  const app='<section>'+renderVerdict(d)+'</section>'
+    +'<section><div class="sec-h"><h2>Monthly spend trend</h2>'
+      +'<span class="hint">Total spend by month'+(d.fastest?', with '+esc(d.fastest.cat)+' (fastest-growing) overlaid':'')+'</span></div>'
+      +'<div class="card">'+lineChart(d)+'</div></section>'
+    +'<section><div class="sec-h"><h2>Category breakdown</h2>'
+      +'<span class="toggle"><button id="bThis" class="'+(barMode==="this"?"on":"")+'">'+monthShort(d.curKey)+' only</button>'
+      +'<button id="bAll" class="'+(barMode==="all"?"on":"")+'">All months</button></span></div>'
+      +'<div class="card">'+barChart(barList,barMode)+'</div></section>'
+    +'<section><div class="sec-h"><h2>All expenses</h2><span class="hint">Filter &amp; sort</span></div>'
+      +'<div class="card" id="tableCard">'+renderTable(d)+'</div></section>'
+    +'<div class="foot">One accent color <span class="swatch"></span> marks the wrong direction only: rising totals, the fastest-growing line, and any category up more than +50% versus the prior month. '
+      +d.meta.rows+' rows read &middot; '+d.meta.counted+' counted'+(d.meta.setAside?' &middot; '+d.meta.setAside+' set aside (unreadable date)':'')+'.</div>';
+  document.getElementById("app").innerHTML=app;
+  wire();
+}
+function wire(){
+  const bThis=document.getElementById("bThis"), bAll=document.getElementById("bAll");
+  if(bThis) bThis.onclick=()=>{barMode="this";render();};
+  if(bAll) bAll.onclick=()=>{barMode="all";render();};
+  const sc=document.getElementById("fCat"); if(sc) sc.onchange=e=>{fCat=e.target.value;refreshTable();};
+  const sm=document.getElementById("fMonth"); if(sm) sm.onchange=e=>{fMonth=e.target.value;refreshTable();};
+  const sa=document.getElementById("sortAmt"); if(sa) sa.onclick=()=>{sortDir=sortDir==="desc"?"asc":"desc";refreshTable();};
+}
+function refreshTable(){ document.getElementById("tableCard").innerHTML=renderTable(DATA); wire(); }
+
+function load(text){
+  const d=analyzeDash(text);
+  if(d.error){ document.getElementById("app").innerHTML='<div class="card" style="color:var(--accent)">'+esc(d.error)+'</div>'; return; }
+  DATA=d; barMode="this"; sortDir="desc"; fCat="all"; fMonth="all"; render();
+}
+
+/* ---------- wiring: seed data + reload + print ---------- */
+try{ load(document.getElementById("seed").textContent); }
+catch(e){ document.getElementById("app").innerHTML='<div class="card">Could not load the built-in data.</div>'; }
+document.getElementById("reload").onclick=()=>document.getElementById("file").click();
+document.getElementById("file").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=ev=>load(ev.target.result); r.readAsText(f);
+};
+document.getElementById("print").onclick=()=>window.print();
+</script>
+</body>
+</html>
